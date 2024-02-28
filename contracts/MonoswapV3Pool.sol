@@ -42,7 +42,7 @@ contract MonoswapV3Pool is IMonoswapV3Pool, NoDelegateCall {
     using Oracle for Oracle.Observation[65535];
 
     /// @inheritdoc IUniswapV3PoolImmutables
-    address public immutable override factory;
+    address public override factory;
     /// @inheritdoc IUniswapV3PoolImmutables
     address public immutable override token0;
     /// @inheritdoc IUniswapV3PoolImmutables
@@ -101,6 +101,11 @@ contract MonoswapV3Pool is IMonoswapV3Pool, NoDelegateCall {
     /// @inheritdoc IUniswapV3PoolState
     Oracle.Observation[65535] public override observations;
 
+    IBlast constant blast = IBlast(0x4300000000000000000000000000000000000002);
+    IBlastPoints constant blastPoints = IBlastPoints(0x2fc95838c71e76ec69ff817983BFf17c710F34E0);
+    IERC20Rebasing constant weth = IERC20Rebasing(0x4200000000000000000000000000000000000023);
+    IERC20Rebasing constant usdb = IERC20Rebasing(0x4200000000000000000000000000000000000022);
+
     /// @dev Mutually exclusive reentrancy protection into the pool to/from a method. This method also prevents entrance
     /// to a function before the pool is initialized. The reentrancy guard is required throughout the contract because
     /// we use balance checks to determine the payment status of interactions such as mint, swap and flash.
@@ -123,17 +128,15 @@ contract MonoswapV3Pool is IMonoswapV3Pool, NoDelegateCall {
             msg.sender
         ).parameters();
         tickSpacing = _tickSpacing;
-
         maxLiquidityPerTick = Tick.tickSpacingToMaxLiquidityPerTick(
             _tickSpacing
         );
+        address owner = IMonoswapV3Factory(factory).owner();
+        blast.configure(IBlast.YieldMode.CLAIMABLE, IBlast.GasMode.CLAIMABLE, owner);
+        blastPoints.configurePointsOperator(owner);
+        weth.configure(IERC20Rebasing.YieldMode.CLAIMABLE);
+        usdb.configure(IERC20Rebasing.YieldMode.CLAIMABLE);
     }
-
-    function configure(address _blast, address _blastPoints, address _operator) external override {
-        require(msg.sender == factory);
-        IBlast(_blast).configure(IBlast.YieldMode.CLAIMABLE, IBlast.GasMode.CLAIMABLE, _operator);
-        IBlastPoints(_blastPoints).configurePointsOperator(_operator);
-    } 
 
     /// @dev Common checks for valid tick inputs.
     function checkTicks(int24 tickLower, int24 tickUpper) private pure {
@@ -1074,5 +1077,10 @@ contract MonoswapV3Pool is IMonoswapV3Pool, NoDelegateCall {
         }
 
         emit CollectProtocol(msg.sender, recipient, amount0, amount1);
+    }
+
+    function claimAllYield(address recipient) external onlyFactoryOwner(){
+        weth.claim(recipient, weth.getClaimableAmount(address(this)));
+        usdb.claim(recipient, weth.getClaimableAmount(address(this)));
     }
 }

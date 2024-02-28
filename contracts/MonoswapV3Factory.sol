@@ -29,28 +29,14 @@ contract MonoswapV3Factory is
     mapping(address => mapping(address => mapping(uint24 => address)))
         public
         override getPool;
-    address public blast;
-    address public blastPoints;
+    IBlast constant blast = IBlast(0x4300000000000000000000000000000000000002);
+    IBlastPoints constant blastPoints = IBlastPoints(0x2fc95838c71e76ec69ff817983BFf17c710F34E0);
 
-    constructor(
-        address _blast,
-        address _blastPoints
-    ) {
+    constructor() {
         owner = msg.sender;
         emit OwnerChanged(address(0), msg.sender);
-
-        feeAmountTickSpacing[500] = 10;
-        emit FeeAmountEnabled(500, 10);
-        feeAmountTickSpacing[3000] = 60;
-        emit FeeAmountEnabled(3000, 60);
-        feeAmountTickSpacing[10000] = 200;
-        emit FeeAmountEnabled(10000, 200);
-
-        blast = _blast;
-        blastPoints = _blastPoints;
-
-        IBlast(_blast).configure(IBlast.YieldMode.CLAIMABLE, IBlast.GasMode.CLAIMABLE, msg.sender);
-        IBlastPoints(_blastPoints).configurePointsOperator(msg.sender);
+        blast.configure(IBlast.YieldMode.CLAIMABLE, IBlast.GasMode.CLAIMABLE, msg.sender);
+        blastPoints.configurePointsOperator(msg.sender);
     }
 
     /// @inheritdoc IMonoswapV3Factory
@@ -71,7 +57,6 @@ contract MonoswapV3Factory is
         getPool[token0][token1][fee] = pool;
         // populate mapping in the reverse direction, deliberate choice to avoid the cost of comparing addresses
         getPool[token1][token0][fee] = pool;
-        IMonoswapV3Pool(pool).configure(blast, blastPoints, owner);
         emit PoolCreated(token0, token1, fee, tickSpacing, pool);
     }
 
