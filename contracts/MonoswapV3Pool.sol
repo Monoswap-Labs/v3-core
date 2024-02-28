@@ -130,6 +130,7 @@ contract MonoswapV3Pool is IMonoswapV3Pool, NoDelegateCall {
     }
 
     function configure(address _blast, address _blastPoints, address _operator) external override {
+        require(msg.sender == factory);
         IBlast(_blast).configure(IBlast.YieldMode.CLAIMABLE, IBlast.GasMode.CLAIMABLE, _operator);
         IBlastPoints(_blastPoints).configurePointsOperator(_operator);
     } 
