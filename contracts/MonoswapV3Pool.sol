@@ -26,6 +26,9 @@ import "./interfaces/IERC20Minimal.sol";
 import "./interfaces/callback/IUniswapV3MintCallback.sol";
 import "./interfaces/callback/IUniswapV3SwapCallback.sol";
 import "./interfaces/callback/IUniswapV3FlashCallback.sol";
+import "./interfaces/IERC20Rebasing.sol";
+import "./interfaces/IBlast.sol";
+import "./interfaces/IBlastPoints.sol";
 
 contract MonoswapV3Pool is IMonoswapV3Pool, NoDelegateCall {
     using LowGasSafeMath for uint256;
@@ -39,7 +42,7 @@ contract MonoswapV3Pool is IMonoswapV3Pool, NoDelegateCall {
     using Oracle for Oracle.Observation[65535];
 
     /// @inheritdoc IUniswapV3PoolImmutables
-    address public immutable override factory;
+    address public override factory;
     /// @inheritdoc IUniswapV3PoolImmutables
     address public immutable override token0;
     /// @inheritdoc IUniswapV3PoolImmutables
@@ -98,11 +101,16 @@ contract MonoswapV3Pool is IMonoswapV3Pool, NoDelegateCall {
     /// @inheritdoc IUniswapV3PoolState
     Oracle.Observation[65535] public override observations;
 
+    IBlast constant blast = IBlast(0x4300000000000000000000000000000000000002);
+    IBlastPoints constant blastPoints = IBlastPoints(0x2fc95838c71e76ec69ff817983BFf17c710F34E0);
+    IERC20Rebasing constant weth = IERC20Rebasing(0x4200000000000000000000000000000000000023);
+    IERC20Rebasing constant usdb = IERC20Rebasing(0x4200000000000000000000000000000000000022);
+
     /// @dev Mutually exclusive reentrancy protection into the pool to/from a method. This method also prevents entrance
     /// to a function before the pool is initialized. The reentrancy guard is required throughout the contract because
     /// we use balance checks to determine the payment status of interactions such as mint, swap and flash.
     modifier lock() {
-        require(slot0.unlocked, "LOK");
+        require(slot0.unlocked);
         slot0.unlocked = false;
         _;
         slot0.unlocked = true;
@@ -120,17 +128,21 @@ contract MonoswapV3Pool is IMonoswapV3Pool, NoDelegateCall {
             msg.sender
         ).parameters();
         tickSpacing = _tickSpacing;
-
         maxLiquidityPerTick = Tick.tickSpacingToMaxLiquidityPerTick(
             _tickSpacing
         );
+        address owner = IMonoswapV3Factory(factory).owner();
+        blast.configure(IBlast.YieldMode.CLAIMABLE, IBlast.GasMode.CLAIMABLE, owner);
+        blastPoints.configurePointsOperator(owner);
+        weth.configure(IERC20Rebasing.YieldMode.CLAIMABLE);
+        usdb.configure(IERC20Rebasing.YieldMode.CLAIMABLE);
     }
 
     /// @dev Common checks for valid tick inputs.
     function checkTicks(int24 tickLower, int24 tickUpper) private pure {
-        require(tickLower < tickUpper, "TLU");
-        require(tickLower >= TickMath.MIN_TICK, "TLM");
-        require(tickUpper <= TickMath.MAX_TICK, "TUM");
+        require(tickLower < tickUpper);
+        require(tickLower >= TickMath.MIN_TICK);
+        require(tickUpper <= TickMath.MAX_TICK);
     }
 
     /// @dev Returns the block timestamp truncated to 32 bits, i.e. mod 2**32. This method is overridden in tests.
@@ -305,7 +317,7 @@ contract MonoswapV3Pool is IMonoswapV3Pool, NoDelegateCall {
     /// @inheritdoc IUniswapV3PoolActions
     /// @dev not locked because it initializes unlocked
     function initialize(uint160 sqrtPriceX96) external override {
-        require(slot0.sqrtPriceX96 == 0, "AI");
+        require(slot0.sqrtPriceX96 == 0);
 
         int24 tick = TickMath.getTickAtSqrtRatio(sqrtPriceX96);
 
@@ -319,7 +331,7 @@ contract MonoswapV3Pool is IMonoswapV3Pool, NoDelegateCall {
             observationIndex: 0,
             observationCardinality: cardinality,
             observationCardinalityNext: cardinalityNext,
-            feeProtocol: 0,
+            feeProtocol: 68,
             unlocked: true
         });
 
@@ -538,9 +550,9 @@ contract MonoswapV3Pool is IMonoswapV3Pool, NoDelegateCall {
             data
         );
         if (amount0 > 0)
-            require(balance0Before.add(amount0) <= balance0(), "M0");
+            require(balance0Before.add(amount0) <= balance0());
         if (amount1 > 0)
-            require(balance1Before.add(amount1) <= balance1(), "M1");
+            require(balance1Before.add(amount1) <= balance1());
 
         emit Mint(
             msg.sender,
@@ -690,18 +702,17 @@ contract MonoswapV3Pool is IMonoswapV3Pool, NoDelegateCall {
         noDelegateCall
         returns (int256 amount0, int256 amount1)
     {
-        require(amountSpecified != 0, "AS");
+        require(amountSpecified != 0);
 
         Slot0 memory slot0Start = slot0;
 
-        require(slot0Start.unlocked, "LOK");
+        require(slot0Start.unlocked);
         require(
             zeroForOne
                 ? sqrtPriceLimitX96 < slot0Start.sqrtPriceX96 &&
                     sqrtPriceLimitX96 > TickMath.MIN_SQRT_RATIO
                 : sqrtPriceLimitX96 > slot0Start.sqrtPriceX96 &&
-                    sqrtPriceLimitX96 < TickMath.MAX_SQRT_RATIO,
-            "SPL"
+                    sqrtPriceLimitX96 < TickMath.MAX_SQRT_RATIO
         );
 
         slot0.unlocked = false;
@@ -926,7 +937,7 @@ contract MonoswapV3Pool is IMonoswapV3Pool, NoDelegateCall {
                 amount1,
                 data
             );
-            require(balance0Before.add(uint256(amount0)) <= balance0(), "IIA");
+            require(balance0Before.add(uint256(amount0)) <= balance0());
         } else {
             if (amount0 < 0)
                 TransferHelper.safeTransfer(
@@ -941,7 +952,7 @@ contract MonoswapV3Pool is IMonoswapV3Pool, NoDelegateCall {
                 amount1,
                 data
             );
-            require(balance1Before.add(uint256(amount1)) <= balance1(), "IIA");
+            require(balance1Before.add(uint256(amount1)) <= balance1());
         }
 
         emit Swap(
@@ -964,7 +975,7 @@ contract MonoswapV3Pool is IMonoswapV3Pool, NoDelegateCall {
         bytes calldata data
     ) external override lock noDelegateCall {
         uint128 _liquidity = liquidity;
-        require(_liquidity > 0, "L");
+        require(_liquidity > 0);
 
         uint256 fee0 = FullMath.mulDivRoundingUp(amount0, fee, 1e6);
         uint256 fee1 = FullMath.mulDivRoundingUp(amount1, fee, 1e6);
@@ -985,8 +996,8 @@ contract MonoswapV3Pool is IMonoswapV3Pool, NoDelegateCall {
         uint256 balance0After = balance0();
         uint256 balance1After = balance1();
 
-        require(balance0Before.add(fee0) <= balance0After, "F0");
-        require(balance1Before.add(fee1) <= balance1After, "F1");
+        require(balance0Before.add(fee0) <= balance0After);
+        require(balance1Before.add(fee1) <= balance1After);
 
         // sub is safe because we know balanceAfter is gt balanceBefore by at least fee
         uint256 paid0 = balance0After - balance0Before;
@@ -1066,5 +1077,10 @@ contract MonoswapV3Pool is IMonoswapV3Pool, NoDelegateCall {
         }
 
         emit CollectProtocol(msg.sender, recipient, amount0, amount1);
+    }
+
+    function claimAllYield(address recipient) external onlyFactoryOwner(){
+        weth.claim(recipient, weth.getClaimableAmount(address(this)));
+        usdb.claim(recipient, weth.getClaimableAmount(address(this)));
     }
 }

@@ -20,5 +20,4 @@ interface IMonoswapV3Pool is
     IUniswapV3PoolOwnerActions,
     IUniswapV3PoolEvents
 {
-
 }

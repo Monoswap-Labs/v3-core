@@ -7,6 +7,9 @@ import "./MonoswapV3PoolDeployer.sol";
 import "./NoDelegateCall.sol";
 
 import "./MonoswapV3Pool.sol";
+import "./interfaces/IBlast.sol";
+import "./interfaces/IBlastPoints.sol";
+import "./interfaces/IMonoswapV3Pool.sol";
 
 /// @title Canonical Monoswap V3 factory
 /// @notice Deploys Monoswap V3 pools and manages ownership and control over pool protocol fees
@@ -26,17 +29,14 @@ contract MonoswapV3Factory is
     mapping(address => mapping(address => mapping(uint24 => address)))
         public
         override getPool;
+    IBlast constant blast = IBlast(0x4300000000000000000000000000000000000002);
+    IBlastPoints constant blastPoints = IBlastPoints(0x2fc95838c71e76ec69ff817983BFf17c710F34E0);
 
     constructor() {
         owner = msg.sender;
         emit OwnerChanged(address(0), msg.sender);
-
-        feeAmountTickSpacing[500] = 10;
-        emit FeeAmountEnabled(500, 10);
-        feeAmountTickSpacing[3000] = 60;
-        emit FeeAmountEnabled(3000, 60);
-        feeAmountTickSpacing[10000] = 200;
-        emit FeeAmountEnabled(10000, 200);
+        blast.configure(IBlast.YieldMode.CLAIMABLE, IBlast.GasMode.CLAIMABLE, msg.sender);
+        blastPoints.configurePointsOperator(msg.sender);
     }
 
     /// @inheritdoc IMonoswapV3Factory
