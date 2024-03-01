@@ -8,7 +8,7 @@ async function main() {
     address: '0x4300000000000000000000000000000000000002',
   };
   const blastPoints = {
-    address: '0x2fc95838c71e76ec69ff817983BFf17c710F34E0',
+    address: '0x2536FE9ab3F511540F2f9e2eC2A805005C3Dd800',
   };
   const ONE_BP_FEE = 100;
   const ONE_BP_TICK_SPACING = 1;

@@ -30,7 +30,7 @@ contract MonoswapV3Factory is
         public
         override getPool;
     IBlast constant blast = IBlast(0x4300000000000000000000000000000000000002);
-    IBlastPoints constant blastPoints = IBlastPoints(0x2fc95838c71e76ec69ff817983BFf17c710F34E0);
+    IBlastPoints constant blastPoints = IBlastPoints(0x2536FE9ab3F511540F2f9e2eC2A805005C3Dd800);
 
     constructor() {
         owner = msg.sender;

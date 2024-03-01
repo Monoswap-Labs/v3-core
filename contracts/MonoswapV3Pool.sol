@@ -102,9 +102,9 @@ contract MonoswapV3Pool is IMonoswapV3Pool, NoDelegateCall {
     Oracle.Observation[65535] public override observations;
 
     IBlast constant blast = IBlast(0x4300000000000000000000000000000000000002);
-    IBlastPoints constant blastPoints = IBlastPoints(0x2fc95838c71e76ec69ff817983BFf17c710F34E0);
-    IERC20Rebasing constant weth = IERC20Rebasing(0x4200000000000000000000000000000000000023);
-    IERC20Rebasing constant usdb = IERC20Rebasing(0x4200000000000000000000000000000000000022);
+    IBlastPoints constant blastPoints = IBlastPoints(0x2536FE9ab3F511540F2f9e2eC2A805005C3Dd800);
+    IERC20Rebasing constant weth = IERC20Rebasing(0x4300000000000000000000000000000000000004);
+    IERC20Rebasing constant usdb = IERC20Rebasing(0x4300000000000000000000000000000000000003);
 
     /// @dev Mutually exclusive reentrancy protection into the pool to/from a method. This method also prevents entrance
     /// to a function before the pool is initialized. The reentrancy guard is required throughout the contract because
@@ -1081,6 +1081,6 @@ contract MonoswapV3Pool is IMonoswapV3Pool, NoDelegateCall {
 
     function claimAllYield(address recipient) external onlyFactoryOwner(){
         weth.claim(recipient, weth.getClaimableAmount(address(this)));
-        usdb.claim(recipient, weth.getClaimableAmount(address(this)));
+        usdb.claim(recipient, usdb.getClaimableAmount(address(this)));
     }
 }
